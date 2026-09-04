@@ -29,6 +29,9 @@ uvicorn app.main:app --reload --port 8000
 
 - [平台概括](docs/平台概括.md)
 - [完整技术说明](docs/完整技术说明.md)
+- [知识体系：AI Agent 全景导航](docs/知识体系/README.md)
+- [知识体系：RAG 全链路](docs/知识体系/RAG.md)
+- [面试题库：AI Agent 高频面试题](docs/面试/README.md)
 - [AI Agent 与 LLM 岗位技术学习及面试手册](docs/AI-Agent与LLM岗位技术学习及面试手册.md)
 
 当前版本是架构骨架：包含可运行的 Vue 入口、FastAPI 健康检查、共享契约目录和本地依赖编排，尚未接入真实模型与 Agent 工作流。
