@@ -6,17 +6,43 @@
 
 ### 标准回答
 
-Transformer（变换器）以 Attention（注意力）为核心。原始 Encoder-Decoder（编码器—解码器）结构包含 Multi-Head Attention（多头注意力）、Feed-Forward Network（前馈网络）、Residual Connection（残差连接）、Layer Normalization（层归一化）和 Positional Encoding（位置编码）。当前生成式大语言模型多采用 Decoder-only（仅解码器）并使用 Causal Mask（因果掩码），保证当前位置只能关注之前的 Token（词元）。
+Transformer 的整体结构可以概括为：
 
-RNN 按序列位置递归计算，训练阶段难以充分并行，长距离依赖还要经过很多时间步。Transformer 在同一层中可并行处理全部位置，并通过注意力直接建立任意位置之间的联系，因此更适合大规模数据和硬件并行。
+```text
+输入文本
+  → Embedding（嵌入）与位置信息
+  → 多层 Transformer Block
+  → 线性输出层与 Softmax
+  → 下一个 Token 的概率
+```
 
-代价是标准全注意力对序列长度的时间和注意力矩阵空间复杂度为平方级。长上下文因此需要 FlashAttention、稀疏/滑窗注意力、分块或其他优化。
+其中，每一层 Transformer Block 主要包括：
+
+```text
+Self-Attention（自注意力）
+  → Residual Connection + Layer Normalization（残差连接 + 层归一化）
+  → Feed-Forward Network（前馈神经网络，FFN）
+  → Residual Connection + Layer Normalization
+```
+
+Self-Attention 负责让不同 Token 交换信息，学习它们之间的关系；FFN 负责对每个 Token 的表示进一步进行非线性变换；残差连接和层归一化用于提高深层网络的训练稳定性。FFN 是 Transformer 内部的一个子模块，并不是整个 Transformer。
+
+原始 Transformer 采用 Encoder-Decoder（编码器—解码器）结构。GPT 等生成式大语言模型通常使用 Decoder-only（仅解码器）结构，并通过 Causal Mask（因果掩码）保证当前位置只能看到前面的 Token。
+
+Transformer 比 RNN 更适合大规模训练，主要有两个原因：
+
+1. **训练并行度更高。** RNN 必须按照序列顺序逐步计算；Transformer 在训练时可以同时处理序列中的所有位置，更适合 GPU / TPU 并行计算。不过，自回归生成时仍需逐 Token 生成。
+2. **更容易建模长距离依赖。** RNN 中相距较远的信息需要经过多个时间步传递；Self-Attention 可以直接计算任意两个 Token 之间的关系。
+
+主要代价是标准 Self-Attention 需要计算 Token 两两之间的关系，计算量和注意力矩阵的内存开销会随序列长度近似平方增长。
 
 ### 得分点
 
-- 能说清注意力、前馈层、残差和归一化，而不是只说“并行”。
-- 知道生成模型常用 Decoder-only 和因果掩码。
-- 能指出全注意力的长序列成本。
+- **结构完整：** 输入先转换成 Embedding，经过多层 Transformer Block，再由输出层得到下一个 Token 的概率。
+- **模块分工：** Self-Attention 负责 Token 之间的信息交互，FFN 负责进一步变换每个 Token 的表示。
+- **训练优势：** Transformer 训练时可以并行处理不同位置，并且更容易学习长距离依赖。
+- **结构区别：** 原始 Transformer 是 Encoder-Decoder，GPT 类大模型通常是带 Causal Mask 的 Decoder-only。
+- **主要代价：** 标准 Self-Attention 的计算和注意力矩阵内存开销随序列长度近似平方增长。
 
 ## 2. Scaled Dot-Product Attention（缩放点积注意力）为什么除以 `sqrt(d_k)`？多头有什么作用？ `★★★★☆`
 
