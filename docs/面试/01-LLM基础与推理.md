@@ -4,45 +4,120 @@
 
 ## 1. Transformer 的核心结构是什么？为什么比 RNN 更适合大模型训练？ `★★★★★`
 
-### 标准回答
+### 一、Transformer 的核心结构
 
-Transformer 的整体结构可以概括为：
+Transformer 会先将输入文本转换为 Token，再通过 Embedding（词向量）和位置编码转换成带有位置信息的向量，然后经过多个重复的 Transformer Block，最后由输出层预测下一个 Token。
 
-```text
-输入文本
-  → Embedding（嵌入）与位置信息
-  → 多层 Transformer Block
-  → 线性输出层与 Softmax
-  → 下一个 Token 的概率
-```
+整体流程可以概括为：
 
-其中，每一层 Transformer Block 主要包括：
+输入文本 → Token 化 → Embedding + 位置信息 → 多层 Transformer Block → 输出层 → 下一个 Token
 
-```text
-Self-Attention（自注意力）
-  → Residual Connection + Layer Normalization（残差连接 + 层归一化）
-  → Feed-Forward Network（前馈神经网络，FFN）
-  → Residual Connection + Layer Normalization
-```
+一个 Transformer Block 主要包含以下组件：
 
-Self-Attention 负责让不同 Token 交换信息，学习它们之间的关系；FFN 负责对每个 Token 的表示进一步进行非线性变换；残差连接和层归一化用于提高深层网络的训练稳定性。FFN 是 Transformer 内部的一个子模块，并不是整个 Transformer。
+1. **多头自注意力机制（Multi-Head Self-Attention）**
 
-原始 Transformer 采用 Encoder-Decoder（编码器—解码器）结构。GPT 等生成式大语言模型通常使用 Decoder-only（仅解码器）结构，并通过 Causal Mask（因果掩码）保证当前位置只能看到前面的 Token。
+    自注意力机制通过 Q、K、V 计算不同 Token 之间的关联程度，使每个 Token 能够结合上下文中的其他信息更新自身表示。
 
-Transformer 比 RNN 更适合大规模训练，主要有两个原因：
+    多头注意力会从不同角度学习关系，例如实体关系、语义关系、位置关系和因果关系。
 
-1. **训练并行度更高。** RNN 必须按照序列顺序逐步计算；Transformer 在训练时可以同时处理序列中的所有位置，更适合 GPU / TPU 并行计算。不过，自回归生成时仍需逐 Token 生成。
-2. **更容易建模长距离依赖。** RNN 中相距较远的信息需要经过多个时间步传递；Self-Attention 可以直接计算任意两个 Token 之间的关系。
+2. **前馈神经网络（Feed Forward Network，FFN）**
 
-主要代价是标准 Self-Attention 需要计算 Token 两两之间的关系，计算量和注意力矩阵的内存开销会随序列长度近似平方增长。
+    Attention 负责汇集不同 Token 之间的信息，FFN 则对每个 Token 已经汇集到的隐藏特征进行进一步非线性加工。
 
-### 得分点
+    可以简单理解为：
+    - Attention 负责建立信息之间的关系；
+    - FFN 负责加工已经建立关系的信息。
 
-- **结构完整：** 输入先转换成 Embedding，经过多层 Transformer Block，再由输出层得到下一个 Token 的概率。
-- **模块分工：** Self-Attention 负责 Token 之间的信息交互，FFN 负责进一步变换每个 Token 的表示。
-- **训练优势：** Transformer 训练时可以并行处理不同位置，并且更容易学习长距离依赖。
-- **结构区别：** 原始 Transformer 是 Encoder-Decoder，GPT 类大模型通常是带 Causal Mask 的 Decoder-only。
-- **主要代价：** 标准 Self-Attention 的计算和注意力矩阵内存开销随序列长度近似平方增长。
+3. **残差连接（Residual Connection）**
+
+    将模块处理结果与原始输入相加，为原始信息和梯度提供直接传递通道，减少深层网络中的信息丢失和梯度消失问题。
+
+4. **层归一化（Layer Normalization，LayerNorm）**
+
+    将每个 Token 的隐藏向量调整到相对稳定的数值范围，提高深层模型训练的稳定性。
+
+以常见的 Pre-Norm 结构为例：
+
+x₁ = x + Attention(LayerNorm(x))
+
+x₂ = x₁ + FFN(LayerNorm(x₁))
+
+多个 Transformer Block 处理完成后，最终隐藏向量会经过输出层映射成词表中所有 Token 的概率，从中选择下一个 Token，并不断重复该过程，最终生成完整答案。
+
+---
+
+### 二、Transformer 为什么比 RNN 更适合大模型训练
+
+#### 1. Transformer 可以进行并行训练
+
+RNN 必须按照时间顺序依次处理 Token：
+
+Token₁ → Token₂ → Token₃ → Token₄
+
+后一个 Token 必须等待前一个 Token 计算完成，因此难以充分利用 GPU 进行大规模并行训练。
+
+Transformer 在训练阶段可以同时处理序列中的多个 Token，通过注意力矩阵计算它们之间的关系，因此训练效率和硬件利用率更高。
+
+#### 2. Transformer 更容易处理长距离依赖
+
+RNN 中，前面的信息需要经过多个时间步骤才能传递到后面。序列较长时，容易出现早期信息丢失和梯度消失问题。
+
+Transformer 的自注意力机制可以让任意两个 Token 直接建立联系。例如句首信息和句尾信息不需要经过中间所有 Token 逐步传递。
+
+#### 3. Transformer 更容易扩展模型规模
+
+Transformer 主要由矩阵计算组成，适合使用 GPU、TPU 和分布式集群训练。模型可以通过增加以下内容扩展能力：
+
+- Transformer 层数；
+- 隐藏向量维度；
+- 注意力头数量；
+- FFN 参数规模；
+- 训练数据量。
+
+这使Transformer更容易扩展到数十亿甚至更大参数规模。
+
+#### 4. 深层训练更加稳定
+
+Transformer 使用 LayerNorm 和残差连接，让信息与梯度能够稳定地通过多层网络，降低深层模型训练困难的问题。
+
+#### 5. 多头注意力能够同时学习多种关系
+
+不同注意力头可以关注不同类型的信息，使模型同时学习语法、实体、位置、上下文和逻辑关系，比RNN单向逐步传递隐藏状态更灵活。
+
+---
+
+### 三、Transformer 的局限性
+
+Transformer 并不是所有方面都优于RNN：
+
+- 标准注意力机制的计算量和显存消耗通常随序列长度呈平方增长；
+- 训练时可以并行处理Token，但生成答案时仍然需要逐Token生成；
+- 上下文过长时，需要使用上下文压缩、分段处理或更高效的注意力机制。
+
+---
+
+### 四、实际案例：态势智能体
+
+态势智能体的一次输入可能同时包含任务数据、车辆状态、地图工具结果和RAG证据。
+
+例如：
+
+- 一号车辆剩余能源20%；
+- 当前路线长度18公里；
+- RAG资料说明能源低于30%时不建议执行长距离机动；
+- 用户要求分析任务风险。
+
+Transformer 的自注意力机制可以直接建立“一号车辆—能源20%—低于30%—18公里路线—机动风险”之间的关系，FFN进一步加工这些信息，最终由输出层逐Token生成风险结论。
+
+如果使用RNN，这些信息需要按照输入顺序逐步传递，输入内容较长时，前面的车辆状态可能在传递过程中逐渐弱化。Transformer可以通过自注意力直接关注相关Token，因此更适合处理Agent中较长的业务数据、RAG证据和工具结果。
+
+---
+
+### 五、面试口述版
+
+Transformer 的核心是由多层 Transformer Block 组成，每个Block主要包含多头自注意力、前馈神经网络、残差连接和LayerNorm。Attention负责建立不同Token之间的关系，FFN负责进一步加工每个Token的隐藏特征，残差连接和LayerNorm则保证深层网络训练稳定，最后由输出层逐Token生成答案。
+
+相比RNN，Transformer最大的优势是训练阶段可以并行处理Token，并且能够通过自注意力直接建立长距离依赖，更容易利用GPU和分布式集群扩展模型参数与训练数据规模。RNN需要按照时间顺序逐步计算，难以并行，而且长序列中容易丢失早期信息。因此，Transformer比RNN更适合训练大语言模型。
 
 ## 2. Scaled Dot-Product Attention（缩放点积注意力）为什么除以 `sqrt(d_k)`？多头有什么作用？ `★★★★☆`
 
